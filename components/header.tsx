@@ -89,7 +89,7 @@ export function Header() {
             <Link href="/categories" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
               Categories
             </Link>
-            <Link href="/maps" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/map" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
               Maps
             </Link>
             <Link href="/about" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
