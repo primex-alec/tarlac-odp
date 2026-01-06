@@ -19,14 +19,19 @@ type ApiFetchOptions = RequestInit & { path: string }
 type ApiError = Error & { status?: number }
 
 async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
-  const { path, headers, ...rest } = options
+  const { path, headers, body, ...rest } = options
+
+  // Detect if body is FormData
+  const isFormData = body instanceof FormData
+
   const response = await fetch(`${defaultBase}${path}`, {
     ...rest,
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...headers,
     },
+    body,
     cache: "no-store",
   })
 
@@ -43,6 +48,7 @@ async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
   return data as T
 }
 
+// 🔑 Auth
 export async function loginRequest(payload: LoginPayload): Promise<LoginResponse> {
   return apiFetch<LoginResponse>({
     path: "/login",
@@ -51,6 +57,7 @@ export async function loginRequest(payload: LoginPayload): Promise<LoginResponse
   })
 }
 
+// 📥 Fetch contributions
 export async function fetchContributes(token?: string) {
   return apiFetch<unknown>({
     path: "/contributes",
@@ -59,23 +66,28 @@ export async function fetchContributes(token?: string) {
   })
 }
 
+// 📤 Submit contribution (JSON or FormData)
 export type ContributePayload = {
   organization: string
   request_type: string
   message: string
   name?: string
   email?: string
+  file?: File
 }
 
-export async function submitContribution(payload: ContributePayload, token?: string) {
+export async function submitContribution(payload: ContributePayload | FormData, token?: string) {
+  const body = payload instanceof FormData ? payload : JSON.stringify(payload)
+
   return apiFetch<unknown>({
     path: "/contributes",
     method: "POST",
-    body: JSON.stringify(payload),
+    body,
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   })
 }
 
+// 🏆 Ranking
 export type RankingItem = {
   name: string
   department: string
@@ -90,26 +102,21 @@ type LaravelRankingItem = {
   }
   total: number
   request_types: Record<string, number>
+  organization?: string
 }
 
 export async function fetchContributorRanking(): Promise<RankingItem[]> {
-  const data = await apiFetch<any[]>({
+  const data = await apiFetch<LaravelRankingItem[]>({
     path: "/contributes/ranking",
     method: "GET",
   })
 
   return data.map((item, idx) => {
     const types = item.request_types ?? {}
-
-    // get the request type with the highest count
-    const topEntry = Object.entries(types).sort(
-      (a, b) => Number(b[1]) - Number(a[1])
-    )[0]
+    const topEntry = Object.entries(types).sort((a, b) => Number(b[1]) - Number(a[1]))[0]
 
     const formattedType = topEntry
-      ? topEntry[0]
-          .replace(/_/g, " ")
-          .replace(/\b\w/g, (c: string) => c.toUpperCase())
+      ? topEntry[0].replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
       : null
 
     return {
@@ -120,5 +127,3 @@ export async function fetchContributorRanking(): Promise<RankingItem[]> {
     }
   })
 }
-
-
