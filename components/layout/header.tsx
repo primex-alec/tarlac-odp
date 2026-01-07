@@ -1,14 +1,58 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import Cookies from "js-cookie"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Menu, X, ChevronDown, Database, Code, MapPin } from "lucide-react"
-import { AuthButton } from "../auth/auth-button"
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const router = useRouter()
+
+  useEffect(() => {
+    const token = Cookies.get("authToken")
+    setIsLoggedIn(!!token)
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+      // Call Laravel logout endpoint to invalidate token
+      const token = Cookies.get("authToken")
+      if (token) {
+        await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/logout`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        })
+      }
+    } catch (err) {
+      console.error("Logout API failed", err)
+    }
+
+    // Clear cookies/localStorage
+    Cookies.remove("authToken")
+    Cookies.remove("userRole")
+    localStorage.removeItem("authToken")
+    localStorage.removeItem("userRole")
+
+    setIsLoggedIn(false)
+    router.push("/") // redirect to home
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/60">
@@ -17,7 +61,7 @@ export function Header() {
         <Link href="/" className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg">
             <img src="/logo/tarlac-seal.png" alt="Tarlac Seal" />
-          </div>  
+          </div>
           <div className="hidden sm:block">
             <p className="text-sm font-semibold text-foreground">Tarlac Open Data Portal</p>
             <p className="text-xs text-muted-foreground">Provincial Government of Tarlac</p>
@@ -26,89 +70,47 @@ export function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-1 md:flex">
-          <Link href="/datasets">
-            <Button variant="ghost" className="text-sm">
-              Datasets
-            </Button>
-          </Link>
-          <Link href="/categories">
-            <Button variant="ghost" className="text-sm">
-              Categories
-            </Button>
-          </Link>
-          <Link href="/map">
-            <Button variant="ghost" className="text-sm">
-              Maps
-            </Button>
-          </Link>
-          <Link href="/about">
-            <Button variant="ghost" className="text-sm">
-              About
-            </Button>
-          </Link>
-          <Link href="/contribute">
-            <Button variant="ghost" className="text-sm">
-              Contribute
-            </Button>
-          </Link>
-          <AuthButton></AuthButton>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-sm">
-                Resources <ChevronDown className="ml-1 h-4 w-4" />
+          <Link href="/datasets"><Button variant="ghost" className="text-sm">Datasets</Button></Link>
+          <Link href="/categories"><Button variant="ghost" className="text-sm">Categories</Button></Link>
+          <Link href="/map"><Button variant="ghost" className="text-sm">Maps</Button></Link>
+          <Link href="/about"><Button variant="ghost" className="text-sm">About</Button></Link>
+          <Link href="/contribute"><Button variant="ghost" className="text-sm">Contribute</Button></Link>
+
+          {/* 🔑 Auth Button */}
+          {isLoggedIn ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="text-sm bg-red-600 hover:bg-red-700 text-white">
+                  Logout
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to log out? You’ll need to sign in again to submit contributions or access the dashboard.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleLogout}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Yes, Logout
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Link href="/login">
+              <Button className="text-sm bg-green-600 hover:bg-green-700 text-white">
+                Login
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href="/api-docs" className="flex items-center gap-2">
-                  <Code className="h-4 w-4" />
-                  Developer API
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/gis" className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  GIS Data
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </Link>
+          )}
         </nav>
-
-        {/* Mobile menu button */}
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
       </div>
-
-      {/* Mobile Navigation */}
-      {mobileMenuOpen && (
-        <div className="border-t border-border bg-card md:hidden">
-          <nav className="flex flex-col px-4 py-4">
-            <Link href="/datasets" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
-              Datasets
-            </Link>
-            <Link href="/categories" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
-              Categories
-            </Link>
-            <Link href="/map" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
-              Maps
-            </Link>
-            <Link href="/about" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
-              About
-            </Link>
-            <Link href="/contribute" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
-              Contribute
-            </Link>
-            <Link href="/login" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
-              Login
-            </Link>
-            <Link href="/api-docs" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
-              Developer API
-            </Link>
-          </nav>
-        </div>
-      )}
     </header>
   )
 }

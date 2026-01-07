@@ -9,7 +9,12 @@ export type LoginPayload = {
 export type LoginResponse = {
   token?: string
   access_token?: string
-  user?: unknown
+  user?: {
+    id: number
+    name: string
+    email: string
+    role?: string
+  }
   message?: string
   [key: string]: unknown
 }
@@ -21,7 +26,6 @@ type ApiError = Error & { status?: number }
 async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
   const { path, headers, body, ...rest } = options
 
-  // Detect if body is FormData
   const isFormData = body instanceof FormData
 
   const response = await fetch(`${defaultBase}${path}`, {
@@ -57,12 +61,29 @@ export async function loginRequest(payload: LoginPayload): Promise<LoginResponse
   })
 }
 
-// 📥 Fetch contributions
+export async function logoutRequest(token: string) {
+  return apiFetch<{ message: string }>({
+    path: "/logout",
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+// 📥 Fetch contributions (public)
 export async function fetchContributes(token?: string) {
-  return apiFetch<unknown>({
+  return apiFetch<any[]>({
     path: "/contributes",
     method: "GET",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+}
+
+// 📥 Fetch all contributions (admin only)
+export async function fetchAllContributions(token: string) {
+  return apiFetch<any[]>({
+    path: "/contributions/all",
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
   })
 }
 
@@ -79,11 +100,24 @@ export type ContributePayload = {
 export async function submitContribution(payload: ContributePayload | FormData, token?: string) {
   const body = payload instanceof FormData ? payload : JSON.stringify(payload)
 
-  return apiFetch<unknown>({
+  return apiFetch<any>({
     path: "/contributes",
     method: "POST",
     body,
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+}
+
+// ✅ Update contribution status (admin)
+export async function updateContributionStatus(id: number, status: string, token: string) {
+  return apiFetch<any>({
+    path: `/contributions/${id}`,
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
   })
 }
 

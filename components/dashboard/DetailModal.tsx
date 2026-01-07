@@ -1,13 +1,10 @@
-// components/DetailModal.tsx
 import React from 'react';
-import { Submission, availableCategories, availableTags, availableRequestTypes } from '@/lib/mockData';
-import { MultiSelect } from './MultiSelect';
 
 interface DetailModalProps {
-  submission: Submission;
+  submission: any;
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: (id: string, updates: Partial<Submission>) => void;
+  onUpdate: (id: string, updates: Partial<any>) => void;
 }
 
 export const DetailModal: React.FC<DetailModalProps> = ({
@@ -19,7 +16,35 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const [editedSubmission, setEditedSubmission] = React.useState(submission);
 
   React.useEffect(() => {
-    setEditedSubmission(submission);
+    // Parse files if it's a JSON string
+    let parsedSubmission = { ...submission };
+    
+    if (submission.files && typeof submission.files === 'string') {
+      try {
+        const filesArray = JSON.parse(submission.files);
+        // Convert file paths to file objects
+        parsedSubmission.files = filesArray.map((filePath: string, index: number) => {
+          const fileName = filePath.split('/').pop()?.replace(/\\\//g, '/') || 'Unknown file';
+          const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+          
+          return {
+            id: index,
+            file_name: fileName,
+            file_path: filePath,
+            file_type: fileExtension,
+            file_url: `/storage/${filePath.replace(/\\\//g, '/')}`,
+            uploaded_at: submission.created_at
+          };
+        });
+      } catch (e) {
+        console.error('Failed to parse files:', e);
+        parsedSubmission.files = [];
+      }
+    } else if (!Array.isArray(submission.files)) {
+      parsedSubmission.files = [];
+    }
+    
+    setEditedSubmission(parsedSubmission);
   }, [submission]);
 
   if (!isOpen) return null;
@@ -30,11 +55,12 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   };
 
   const getFileIcon = (type: string) => {
-    if (type.includes('pdf')) return '📄';
-    if (type.includes('excel') || type.includes('csv')) return '📊';
-    if (type.includes('word') || type.includes('docx')) return '📝';
-    if (type.includes('zip')) return '🗜️';
-    if (type.includes('image')) return '🖼️';
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes('pdf')) return '📄';
+    if (lowerType.includes('xlsx') || lowerType.includes('xls') || lowerType.includes('excel') || lowerType.includes('csv')) return '📊';
+    if (lowerType.includes('doc') || lowerType.includes('docx') || lowerType.includes('word')) return '📝';
+    if (lowerType.includes('zip') || lowerType.includes('rar') || lowerType.includes('7z')) return '🗜️';
+    if (lowerType.includes('image') || lowerType.includes('png') || lowerType.includes('jpg') || lowerType.includes('jpeg') || lowerType.includes('gif')) return '🖼️';
     return '📎';
   };
 
@@ -50,7 +76,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
         <div className="bg-green-700 px-6 py-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-white">Dataset Details</h2>
+              <h2 className="text-2xl font-bold text-white">Contribution Details</h2>
               <p className="text-sm text-green-100 mt-1">Review and manage submission information</p>
             </div>
             <button
@@ -67,21 +93,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
           <div className="p-6 space-y-6">
-            {/* Title */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Title
-              </label>
-              <input
-                type="text"
-                value={editedSubmission.title}
-                onChange={(e) =>
-                  setEditedSubmission({ ...editedSubmission, title: e.target.value })
-                }
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-
             {/* Organization and Request Type */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -90,7 +101,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={editedSubmission.organization}
+                  value={editedSubmission.organization || ''}
                   onChange={(e) =>
                     setEditedSubmission({ ...editedSubmission, organization: e.target.value })
                   }
@@ -102,17 +113,16 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                   Request Type
                 </label>
                 <select
-                  value={editedSubmission.requestType}
+                  value={editedSubmission.request_type || 'other'}
                   onChange={(e) =>
-                    setEditedSubmission({ ...editedSubmission, requestType: e.target.value })
+                    setEditedSubmission({ ...editedSubmission, request_type: e.target.value })
                   }
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 >
-                  {availableRequestTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
+                  <option value="data_contribution">Data Contribution</option>
+                  <option value="data_request">Data Request</option>
+                  <option value="partnership">Partnership</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
             </div>
@@ -127,7 +137,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                   <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                   </svg>
-                  {editedSubmission.submittedBy}
+                  {editedSubmission.user?.name || 'Unknown User'}
                 </div>
               </div>
               <div>
@@ -138,7 +148,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                   <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                   </svg>
-                  {new Date(editedSubmission.submittedDate).toLocaleDateString('en-US', {
+                  {new Date(editedSubmission.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
@@ -157,7 +167,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 onChange={(e) =>
                   setEditedSubmission({
                     ...editedSubmission,
-                    status: e.target.value as Submission['status'],
+                    status: e.target.value,
                   })
                 }
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -171,27 +181,27 @@ export const DetailModal: React.FC<DetailModalProps> = ({
             {/* Message/Description */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Description
+                Message
               </label>
               <textarea
-                value={editedSubmission.message}
+                value={editedSubmission.message || ''}
                 onChange={(e) =>
                   setEditedSubmission({ ...editedSubmission, message: e.target.value })
                 }
                 rows={5}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                placeholder="Enter dataset description..."
+                placeholder="Enter contribution message..."
               />
             </div>
 
             {/* Uploaded Files */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Uploaded Files ({editedSubmission.uploadedFiles.length})
+                Uploaded Files {Array.isArray(editedSubmission.files) && editedSubmission.files.length > 0 && `(${editedSubmission.files.length})`}
               </label>
               <div className="border border-gray-200 rounded-md overflow-hidden">
                 <div className="max-h-64 overflow-y-auto">
-                  {editedSubmission.uploadedFiles.length === 0 ? (
+                  {!Array.isArray(editedSubmission.files) || editedSubmission.files.length === 0 ? (
                     <div className="px-4 py-8 text-center text-gray-500">
                       <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -200,25 +210,33 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                     </div>
                   ) : (
                     <div className="divide-y divide-gray-200">
-                      {editedSubmission.uploadedFiles.map((file) => (
+                      {editedSubmission.files.map((file: any, index: number) => (
                         <div
-                          key={file.id}
+                          key={file.id || index}
                           className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <span className="text-2xl flex-shrink-0">{getFileIcon(file.type)}</span>
+                            <span className="text-2xl flex-shrink-0">{getFileIcon(file.file_type || '')}</span>
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-gray-900 truncate">
-                                {file.name}
+                                {file.file_name || 'Unnamed file'}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {file.size} • Uploaded {new Date(file.uploadedAt).toLocaleDateString()}
+                                {file.file_size ? `${(file.file_size / 1024).toFixed(2)} KB` : 'Unknown size'} • 
+                                Uploaded {new Date(file.uploaded_at || file.created_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
-                          <button className="ml-3 text-green-600 hover:text-green-700 text-sm font-medium flex-shrink-0">
-                            Download
-                          </button>
+                          {file.file_url && (
+                            <a
+                              href={file.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-3 text-green-600 hover:text-green-700 text-sm font-medium flex-shrink-0"
+                            >
+                              Download
+                            </a>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -227,25 +245,19 @@ export const DetailModal: React.FC<DetailModalProps> = ({
               </div>
             </div>
 
-            {/* Categories */}
-            <MultiSelect
-              label="Categories"
-              options={availableCategories}
-              selected={editedSubmission.categories}
-              onChange={(categories) =>
-                setEditedSubmission({ ...editedSubmission, categories })
-              }
-            />
-
-            {/* Tags */}
-            <MultiSelect
-              label="Tags"
-              options={availableTags}
-              selected={editedSubmission.tags}
-              onChange={(tags) =>
-                setEditedSubmission({ ...editedSubmission, tags })
-              }
-            />
+            {/* Additional Information Section */}
+            {(editedSubmission.metadata || editedSubmission.notes) && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Additional Information
+                </label>
+                <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <pre className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {JSON.stringify(editedSubmission.metadata || editedSubmission.notes, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -272,4 +284,4 @@ export const DetailModal: React.FC<DetailModalProps> = ({
       </div>
     </div>
   );
-}
+};

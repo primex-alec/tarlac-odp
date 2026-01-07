@@ -10,6 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { loginRequest } from "@/lib/api"
+import Cookies from "js-cookie";
+
 
 export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -18,40 +20,49 @@ export function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false)
   const router = useRouter()
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    const email = (formData.get("email") as string | null)?.trim() ?? ""
-    const password = (formData.get("password") as string | null)?.trim() ?? ""
+ const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  event.preventDefault()
+  const formData = new FormData(event.currentTarget)
+  const email = (formData.get("email") as string | null)?.trim() ?? ""
+  const password = (formData.get("password") as string | null)?.trim() ?? ""
 
-    if (!email || !password) {
-      setError("Enter both email and password to continue.")
-      return
-    }
-
-    setError(null)
-    setSuccess(null)
-    setIsSubmitting(true)
-
-    try {
-      const response = await loginRequest({ email, password, remember: rememberMe })
-      const token = response?.token || (response as { access_token?: string })?.access_token
-
-      if (token && typeof window !== "undefined") {
-        window.localStorage.setItem("authToken", token)
-      }
-
-      setSuccess(response?.message || "Login successful. Redirecting to contribute page...")
-      window.setTimeout(() => {
-        router.push("/contribute")
-      }, 700)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed. Please try again."
-      setError(message)
-    } finally {
-      setIsSubmitting(false)
-    }
+  if (!email || !password) {
+    setError("Enter both email and password to continue.")
+    return
   }
+
+  setError(null)
+  setSuccess(null)
+  setIsSubmitting(true)
+
+  try {
+    const response = await loginRequest({ email, password, remember: rememberMe })
+    const token = response?.token || (response as { access_token?: string })?.access_token
+    const user = response?.user as { role?: string }
+
+    if (token && typeof window !== "undefined") {
+    Cookies.set("authToken", token, { expires: rememberMe ? 7 : undefined });
+    Cookies.set("userRole", user?.role ?? "user", { expires: rememberMe ? 7 : undefined });
+  }
+
+
+    setSuccess("Login successful. Redirecting...")
+
+    window.setTimeout(() => {
+      if (user?.role === "admin") {
+        router.push("/dashboard") // admin route
+      } else {
+        router.push("/contribute") // normal user route
+      }
+    }, 700)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Login failed. Please try again."
+    setError(message)
+  } finally {
+    setIsSubmitting(false)
+  }
+}
+
 
   return (
     <Card className="w-full max-w-lg border-border/70 shadow-lg">
